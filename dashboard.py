@@ -44,7 +44,7 @@ def generate_pdf(df, title="Report"):
     elements.append(Spacer(1, 12))
 
     # Header
-    data = [[Paragraph(str(col).replace("_", " "), header_style) for col in df.columns]]
+    data = [[Paragraph(f"<b>{str(col).replace("_", " ")}</b>", styles['Normal']) for col in df.columns]]
 
     # Dati
     for _, row in df.iterrows():
@@ -68,6 +68,7 @@ def generate_pdf(df, title="Report"):
 
     # Imposta larghezze minime personalizzate
     min_widths = {
+        "FTEs_total": 80,   
         "FTEs": 50,
         "Supplier": 120,
         "RES ID (SNow)": 80,
@@ -98,6 +99,7 @@ def generate_pdf(df, title="Report"):
         ('FONTSIZE', (0, 0), (-1, -1), font_size),
         ('BOTTOMPADDING', (0, 0), (-1, 0), 6),
         ('GRID', (0, 0), (-1, -1), 0.25, colors.grey),
+        ('WORDWRAP', (0, 0), (-1, 0), 'CJK')
     ])
     table.setStyle(style)
 
@@ -121,9 +123,9 @@ if "consolidato_df" not in st.session_state:
 # Sidebar: scelta pagina
 # ------------------------------
 st.sidebar.title("📂 Navigazione")
-page = st.sidebar.radio("Vai a:", ["📊 Editor", "📈 Analisi"])
+page = st.sidebar.radio("Vai a:", ["📊 Capability", "📈 Consolidato"])
 
-if page == "📊 Editor":
+if page == "📊 Capability":
     st.title("Editor Excel")
 
     uploaded_file = st.file_uploader("📂 Carica un file Excel Capability per modificarlo", 
@@ -184,7 +186,7 @@ if page == "📊 Editor":
 # ------------------------------
 # PAGINA ANALISI CONSOLIDATO
 # ------------------------------
-elif page == "📈 Analisi":
+elif page == "📈 Consolidato":
     st.title("📈 Analisi consolidato mensile")
 
     with st.expander("📖 Guida: come preparare il file consolidato"):
@@ -194,7 +196,7 @@ elif page == "📈 Analisi":
 
         **Passo 2:** Aprire un nuovo file Excel vuoto ed incollare i dati (Ctrl+V).
 
-        **Passo 3:** Rinominare il foglio con lo stesso nome del file originale e salvare con un nuovo nome 
+        **Passo 3:** Rinominare il foglio con lo stesso nome del file originale e salvare il file con un nuovo nome 
         (ad esempio `Consolidato_MeseCorrente.xlsx`).
 
         **Passo 4:** Caricare qui il nuovo file salvato.  
@@ -233,6 +235,10 @@ elif page == "📈 Analisi":
             df_cons["Supplier"] = df_cons["Supplier"].astype(str).str.strip()
             df_cons["FTEs_clean"] = df_cons["FTEs"].apply(clean_fte)
             df_cons["Supplier_norm"] = df_cons["Supplier"].str.split().str.join(" ")
+
+            colonna_ordinamento = "Giugno '25 - In/Out"
+            valori_in = ["IN", "IN_dd", "IN_nb", "IN_rnm", "TBV (in)"]
+            df_cons = df_cons[df_cons[colonna_ordinamento].isin(valori_in)].copy()
 
             # Aggregazione per supplier
             agg_cons = (
@@ -281,7 +287,7 @@ elif page == "📈 Analisi":
                 )
 
                 # Download Excel
-                default_excel_name = "Consolidato_FTE_0_3.xlsx"
+                default_excel_name = ".xlsx"
                 excel_name = st.text_input("📊 Inserisci il nome del file Excel completo:", value=default_excel_name)
 
                 excel_buffer = io.BytesIO()
@@ -300,8 +306,8 @@ elif page == "📈 Analisi":
 
 
                 # Download Excel (solo tabella Supplier con FTE 0-3)
-                default_excel_single = "Supplier_FTE_0_3.xlsx"
-                excel_name_single = st.text_input("📊 Inserisci il nome del file Excel (solo tabella):", value=default_excel_single)
+                default_excel_single = ".xlsx"
+                excel_name_single = st.text_input("📊 Inserisci il nome del file Excel (solo tabella FTE 0-3):", value=default_excel_single)
 
                 excel_buffer_single = io.BytesIO()
                 with pd.ExcelWriter(excel_buffer_single, engine="openpyxl") as writer:
@@ -316,8 +322,8 @@ elif page == "📈 Analisi":
                 )
 
                 # Download PDF
-                default_name = "Consolidato_FTE_0_3.pdf"
-                pdf_name = st.text_input("📄 Inserisci il nome del file PDF da scaricare:", value=default_name)
+                default_name = ".pdf"
+                pdf_name = st.text_input("📄 Inserisci il nome del file PDF da scaricare: (Supplier_FTE_0-3_MeseCorrente)", value=default_name)
 
                 pdf_buffer = generate_pdf(
                     rows_selected[display_cols],
