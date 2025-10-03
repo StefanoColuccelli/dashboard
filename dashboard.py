@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import io
+from reportlab.pdfbase.pdfmetrics import stringWidth
 from reportlab.lib.pagesizes import A4
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
 from reportlab.lib import colors
@@ -31,20 +32,13 @@ def generate_pdf(df, title="Report"):
     normal_style = styles['Normal']
     normal_style.wordWrap = 'LTR'   # wrapping classico (non CJK)
     header_style = styles['Heading5']
-    header_style.wordWrap = None
-
-    # 🔧 funzione per spezzare testi molto lunghi
-    def split_long_text(text, max_len=120):
-        if not isinstance(text, str):
-            return str(text)
-        return '\n'.join(text[i:i+max_len] for i in range(0, len(text), max_len))
 
     # Titolo
     elements.append(Paragraph(title, title_style))
     elements.append(Spacer(1, 12))
 
     # Header
-    data = [[Paragraph(f"<b>{str(col).replace("_", " ")}</b>", styles['Normal']) for col in df.columns]]
+    data = [[Paragraph(f"<nobr>{str(col).replace("_", " ")}</nobr>", styles['Normal']) for col in df.columns]]
 
     # Dati
     for _, row in df.iterrows():
@@ -53,31 +47,21 @@ def generate_pdf(df, title="Report"):
             if isinstance(cell, (int, float, np.number)):
                 formatted_row.append(Paragraph(f"{cell:.2f}", normal_style))
             else:
-                text_value = str(cell)
-                # se colonna Commenti o testo molto lungo → spezza
-                if col.lower() == "commenti" or len(text_value) > 300:
-                    text_value = split_long_text(text_value, 120)
-                formatted_row.append(Paragraph(text_value, normal_style))
+                formatted_row.append(Paragraph(str(cell), normal_style))
         data.append(formatted_row)
 
     # Calcolo larghezze colonne
     page_width = pagesize[0] - 40
-    max_chars = [max(6, df[col].astype(str).str.len().max()) for col in df.columns]
-    total_chars = sum(max_chars) if sum(max_chars) > 0 else 1
-    col_widths = [(mc / total_chars) * page_width for mc in max_chars]
+    col_widths = []
+    for col in df.columns:
+        texts = [str(col)] + df[col].astype(str).tolist()
+        max_width = max(stringWidth(t, "Helvetica", 8) for t in texts) + 15
+        col_widths.append(max_width)
 
-    # Imposta larghezze minime personalizzate
-    min_widths = {
-        "FTEs_total": 80,   
-        "FTEs": 50,
-        "Supplier": 120,
-        "RES ID (SNow)": 80,
-        "Commenti": 200
-    }
-
-    for i, col in enumerate(df.columns):
-        if col in min_widths:
-            col_widths[i] = max(col_widths[i], min_widths[col])
+    total_width = sum(col_widths)
+    if total_width > page_width:
+        scale = page_width / total_width
+        col_widths = [w * scale for w in col_widths]
 
     table = Table(data, colWidths=col_widths, repeatRows=1)
 
