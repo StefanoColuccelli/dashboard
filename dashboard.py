@@ -106,7 +106,7 @@ if "consolidato_df" not in st.session_state:
 # ------------------------------
 # Sidebar: scelta pagina
 # ------------------------------
-st.logo(r'logo\Lutech Logo Original.png', size='large')
+st.logo(r'logo\Lutech Logo Original.png', size='large', link=None, icon_image=None)
 st.sidebar.title("📂 Navigazione")
 
 page = st.sidebar.radio("Vai a:", ["📊 Capability", "📈 Consolidato"])
